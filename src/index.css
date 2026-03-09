@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+body {
+  margin: 0;
+  background: #0a0a0a;
+  color: white;
+  font-family: 'Courier New', monospace;
+  overflow: hidden;
+  height: 100dvh;
+  width: 100dvw;
+}
+
+#root {
+  height: 100dvh;
+  width: 100dvw;
+}
