@@ -1,38 +1,49 @@
 import Phaser from "phaser";
 
 const TILE = 32;
-const MAP_W = 20;
-const MAP_H = 20;
+const MAP_W = 48;
+const MAP_H = 44;
 const MOVE_DURATION = 150; // ms par tile
 
-const MODULES = [
-  { id: 1, name: "La naissance d'Enchanted Tools", x: 3, y: 3 },
-  { id: 2, name: "L'histoire des Mirokaï", x: 8, y: 3 },
-  { id: 3, name: "Le design", x: 14, y: 3 },
-  { id: 4, name: "La table électronique", x: 3, y: 8 },
-  { id: 5, name: "La combinaison des Mirokaï", x: 3, y: 12 },
-  { id: 6, name: "Le pendule inversé", x: 8, y: 8 },
-  { id: 7, name: "La vision du robot", x: 3, y: 16 },
-  { id: 8, name: "L'IA du robot", x: 6, y: 16 },
-  { id: 9, name: "Les cas d'usage", x: 3, y: 19 },
-  { id: 10, name: "La salle de cyclage", x: 10, y: 19 },
-  { id: 11, name: "La fresque récapitulative", x: 16, y: 19 },
+export interface ModuleData {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+}
+
+export const FALLBACK_MODULES: ModuleData[] = [
+  { id: 1, name: "La naissance d'Enchanted Tools", x: 38, y: 18 },
+  { id: 2, name: "L'histoire des Mirokaï", x: 30, y: 10 },
+  { id: 3, name: "Le design", x: 34, y: 5 },
+  { id: 4, name: "La table électronique", x: 5, y: 5 },
+  { id: 5, name: "La combinaison des Mirokaï", x: 5, y: 9 },
+  { id: 6, name: "Le pendule inversé", x: 14, y: 10 },
+  { id: 7, name: "La vision du robot", x: 5, y: 14 },
+  { id: 8, name: "L'IA du robot", x: 8, y: 14 },
+  { id: 9, name: "Les cas d'usage", x: 5, y: 18 },
+  { id: 10, name: "La salle de cyclage", x: 8, y: 28 },
+  { id: 11, name: "La fresque récapitulative", x: 32, y: 28 },
 ];
 
 export class MainScene extends Phaser.Scene {
   private playerSprite!: Phaser.GameObjects.Image;
   private currentDir = "south";
 
-  private playerX = 10;
-  private playerY = 10;
+  private playerX = 24;
+  private playerY = 22;
   private isMoving = false;
   private heldDir: { dx: number; dy: number } | null = null;
+  private modules: ModuleData[] = FALLBACK_MODULES;
 
   onInteract?: (module: { id: number; name: string }) => void;
   onNearModule?: (module: { id: number; name: string } | null) => void;
 
-  constructor() {
+  constructor(modules?: ModuleData[]) {
     super({ key: "MainScene" });
+    if (modules && modules.length > 0) {
+      this.modules = modules;
+    }
   }
 
   preload() {
@@ -75,7 +86,7 @@ export class MainScene extends Phaser.Scene {
     }
 
     // Modules (PNJ)
-    MODULES.forEach((mod) => {
+    this.modules.forEach((mod) => {
       // Halo
       this.add.circle(
         mod.x * TILE + TILE / 2,
@@ -141,7 +152,7 @@ export class MainScene extends Phaser.Scene {
     const ny = this.playerY + dy;
 
     if (nx <= 0 || nx >= MAP_W - 1 || ny <= 0 || ny >= MAP_H - 1) return;
-    const blocked = MODULES.some((m) => m.x === nx && m.y === ny);
+    const blocked = this.modules.some((m) => m.x === nx && m.y === ny);
     if (blocked) return;
 
     // Changer le sprite selon la direction
@@ -172,7 +183,7 @@ export class MainScene extends Phaser.Scene {
   }
 
   private checkNearby() {
-    const nearby = MODULES.find(
+    const nearby = this.modules.find(
       (m) =>
         Math.abs(m.x - this.playerX) <= 1 && Math.abs(m.y - this.playerY) <= 1,
     );
@@ -180,7 +191,7 @@ export class MainScene extends Phaser.Scene {
   }
 
   interact() {
-    const nearby = MODULES.find(
+    const nearby = this.modules.find(
       (m) =>
         Math.abs(m.x - this.playerX) <= 1 && Math.abs(m.y - this.playerY) <= 1,
     );

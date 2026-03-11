@@ -1,10 +1,37 @@
 import { useEffect, useRef, useState } from 'react'
 import Phaser from 'phaser'
-import { MainScene } from '../game/MainScene'
+import { MainScene, type ModuleData, FALLBACK_MODULES } from '../game/MainScene'
 
 interface ModuleInfo { id: number; name: string }
 
 const CONTROLS_H = 160
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api'
+
+async function fetchModules(): Promise<ModuleData[] | null> {
+  try {
+    const res = await fetch(`${API_URL}/modules`, { signal: AbortSignal.timeout(5000) })
+    if (!res.ok) return null
+    const data: { number: number; name: string; mapX?: number; mapY?: number }[] = await res.json()
+
+    // Pour chaque module du fallback, on prend la position API si disponible
+    const merged: ModuleData[] = FALLBACK_MODULES.map((fallback) => {
+      const api = data.find((m) => m.number === fallback.id)
+      if (api?.mapX !== undefined && api?.mapY !== undefined) {
+        return {
+          id: api.number,
+          name: api.name,
+          x: Math.round(api.mapX * 48),
+          y: Math.round(api.mapY * 44),
+        }
+      }
+      return fallback
+    })
+
+    return merged
+  } catch {
+    return null
+  }
+}
 
 export function GameScreen() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -12,11 +39,20 @@ export function GameScreen() {
   const sceneRef = useRef<MainScene | null>(null)
   const [nearModule, setNearModule] = useState<ModuleInfo | null>(null)
   const [activeModule, setActiveModule] = useState<ModuleInfo | null>(null)
+  // undefined = en cours, null = fallback, ModuleData[] = chargé
+  const [modules, setModules] = useState<ModuleData[] | null | undefined>(undefined)
 
+  // Étape 1 : fetch
   useEffect(() => {
+    fetchModules().then((data) => setModules(data))
+  }, [])
+
+  // Étape 2 : créer le jeu une fois les modules connus (plus undefined)
+  useEffect(() => {
+    if (modules === undefined) return
     if (!containerRef.current || !wrapperRef.current) return
 
-    const scene = new MainScene()
+    const scene = new MainScene(modules ?? undefined)
     scene.onNearModule = (mod) => setNearModule(mod)
     scene.onInteract = (mod) => setActiveModule(mod)
     sceneRef.current = scene
@@ -34,7 +70,7 @@ export function GameScreen() {
     })
 
     return () => { game.destroy(true) }
-  }, [])
+  }, [modules])
 
   function pressDir(dx: number, dy: number) {
     sceneRef.current?.setHeldDir(dx, dy)
@@ -48,6 +84,11 @@ export function GameScreen() {
 
   return (
     <div ref={wrapperRef} className="flex flex-col select-none overflow-hidden" style={{ height: '100dvh' }}>
+      {modules === undefined && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#0a0a0a]">
+          <p className="text-purple-400 text-sm animate-pulse">Chargement de l'expérience…</p>
+        </div>
+      )}
       {/* Écran */}
       <div className="relative bg-[#0f0f1a] shrink-0">
         <div ref={containerRef} />
