@@ -4,6 +4,7 @@ const TILE = 32;
 const MAP_W = 48;
 const MAP_H = 44;
 const MOVE_DURATION = 150; // ms par tile
+const PLAYER_SIZE = TILE * 2.5; // taille d'affichage du sprite joueur
 
 export interface ModuleData {
   id: number;
@@ -36,6 +37,9 @@ export class MainScene extends Phaser.Scene {
   private heldDir: { dx: number; dy: number } | null = null;
   private modules: ModuleData[] = FALLBACK_MODULES;
 
+  // Grille de collision construite depuis le calque "collisions" de Tiled
+  private collisionGrid: boolean[][] = [];
+
   onInteract?: (module: { id: number; name: string }) => void;
   onNearModule?: (module: { id: number; name: string } | null) => void;
 
@@ -51,43 +55,40 @@ export class MainScene extends Phaser.Scene {
     this.load.image("mirokai-north", "/assets/North.png");
     this.load.image("mirokai-east", "/assets/East.png");
     this.load.image("mirokai-west", "/assets/West.png");
+
+    // Image de la map exportée depuis Tiled (File → Export as Image)
+    this.load.image("map-bg", "/assets/map.png");
+
+    // Données JSON de la map (pour le calque collisions)
+    this.load.json("map-data", "/map-game.tmj");
   }
 
   create() {
-    // Sol — damier léger
-    for (let x = 0; x < MAP_W; x++) {
-      for (let y = 0; y < MAP_H; y++) {
-        const color = (x + y) % 2 === 0 ? 0x1a1a2e : 0x16213e;
-        this.add.rectangle(
-          x * TILE + TILE / 2,
-          y * TILE + TILE / 2,
-          TILE,
-          TILE,
-          color,
-        );
-      }
-    }
-
-    // Murs périmétriques
-    for (let x = 0; x < MAP_W; x++) {
-      for (let y = 0; y < MAP_H; y++) {
-        if (x === 0 || x === MAP_W - 1 || y === 0 || y === MAP_H - 1) {
-          this.add
-            .rectangle(
-              x * TILE + TILE / 2,
-              y * TILE + TILE / 2,
-              TILE,
-              TILE,
-              0x0f3460,
-            )
-            .setStrokeStyle(1, 0x533483);
+    // ── Fond de map ────────────────────────────────────────────────────────────
+    if (this.textures.exists("map-bg")) {
+      this.add.image(0, 0, "map-bg").setOrigin(0, 0);
+    } else {
+      // Fallback damier si l'image n'est pas encore exportée
+      for (let x = 0; x < MAP_W; x++) {
+        for (let y = 0; y < MAP_H; y++) {
+          const color = (x + y) % 2 === 0 ? 0x1a1a2e : 0x16213e;
+          this.add.rectangle(
+            x * TILE + TILE / 2,
+            y * TILE + TILE / 2,
+            TILE,
+            TILE,
+            color,
+          );
         }
       }
     }
 
-    // Modules (PNJ)
+    // ── Grille de collision depuis le JSON Tiled ───────────────────────────────
+    const mapData = this.cache.json.get("map-data");
+    this.buildCollisionGrid(mapData);
+
+    // ── Modules (PNJ) ──────────────────────────────────────────────────────────
     this.modules.forEach((mod) => {
-      // Halo
       this.add.circle(
         mod.x * TILE + TILE / 2,
         mod.y * TILE + TILE / 2,
@@ -95,7 +96,6 @@ export class MainScene extends Phaser.Scene {
         0x7c3aed,
         0.15,
       );
-      // Corps
       this.add
         .rectangle(
           mod.x * TILE + TILE / 2,
@@ -105,7 +105,6 @@ export class MainScene extends Phaser.Scene {
           0x7c3aed,
         )
         .setStrokeStyle(2, 0xa78bfa);
-      // Numéro
       this.add
         .text(
           mod.x * TILE + TILE / 2,
@@ -116,21 +115,62 @@ export class MainScene extends Phaser.Scene {
         .setOrigin(0.5);
     });
 
-    // Sprite joueur
+    // ── Sprite joueur ──────────────────────────────────────────────────────────
     this.playerSprite = this.add.image(
       this.playerX * TILE + TILE / 2,
       this.playerY * TILE + TILE / 2,
       "mirokai-south",
     );
-    this.playerSprite.setDisplaySize(TILE, TILE);
+    this.playerSprite.setDisplaySize(PLAYER_SIZE, PLAYER_SIZE);
+    this.playerSprite.setDepth(10);
 
-    // Caméra
+    // ── Caméra ─────────────────────────────────────────────────────────────────
     this.cameras.main.setBounds(0, 0, MAP_W * TILE, MAP_H * TILE);
     this.cameras.main.startFollow(this.playerSprite, true, 0.08, 0.08);
-    this.cameras.main.setZoom(2.5);
+    this.cameras.main.setZoom(1.0);
   }
 
-  // Appelé depuis React quand un bouton est pressé
+  // ── Construction de la grille de collision ─────────────────────────────────
+  private buildCollisionGrid(mapData: any) {
+    // Initialise tout à false
+    this.collisionGrid = Array.from({ length: MAP_H }, () =>
+      new Array(MAP_W).fill(false),
+    );
+
+    // Murs périmétriques
+    for (let x = 0; x < MAP_W; x++) {
+      for (let y = 0; y < MAP_H; y++) {
+        if (x === 0 || x === MAP_W - 1 || y === 0 || y === MAP_H - 1) {
+          this.collisionGrid[y][x] = true;
+        }
+      }
+    }
+
+    if (!mapData) return;
+
+    // Calque "collisions" dans le JSON Tiled
+    const collisionsLayer = mapData.layers?.find(
+      (l: any) => l.name === "collisions",
+    );
+    if (!collisionsLayer) return;
+
+    collisionsLayer.objects.forEach((obj: any) => {
+      const tileX = Math.floor(obj.x / TILE);
+      const tileY = Math.floor(obj.y / TILE);
+      const tileW = Math.ceil(obj.width / TILE);
+      const tileH = Math.ceil(obj.height / TILE);
+
+      for (let y = tileY; y < tileY + tileH; y++) {
+        for (let x = tileX; x < tileX + tileW; x++) {
+          if (x >= 0 && x < MAP_W && y >= 0 && y < MAP_H) {
+            this.collisionGrid[y][x] = true;
+          }
+        }
+      }
+    });
+  }
+
+  // ── Déplacement ───────────────────────────────────────────────────────────
   setHeldDir(dx: number, dy: number) {
     this.heldDir = { dx, dy };
     if (!this.isMoving) this.tryMove(dx, dy);
@@ -151,11 +191,12 @@ export class MainScene extends Phaser.Scene {
     const nx = this.playerX + dx;
     const ny = this.playerY + dy;
 
-    if (nx <= 0 || nx >= MAP_W - 1 || ny <= 0 || ny >= MAP_H - 1) return;
-    const blocked = this.modules.some((m) => m.x === nx && m.y === ny);
-    if (blocked) return;
+    // Collision grille Tiled
+    if (this.collisionGrid[ny]?.[nx]) return;
 
-    // Changer le sprite selon la direction
+    // Collision modules
+    if (this.modules.some((m) => m.x === nx && m.y === ny)) return;
+
     const dir = this.dirKey(dx, dy);
     if (dir !== this.currentDir) {
       this.currentDir = dir;
