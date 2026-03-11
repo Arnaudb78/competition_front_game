@@ -47,10 +47,10 @@ export class MainScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image("mirokai-south", "/assets/mirokai-south.png");
-    this.load.image("mirokai-north", "/assets/mirokai-north.png");
-    this.load.image("mirokai-east", "/assets/mirokai-east.png");
-    this.load.image("mirokai-west", "/assets/mirokai-west.png");
+    this.load.image("mirokai-south", "/assets/South.png");
+    this.load.image("mirokai-north", "/assets/North.png");
+    this.load.image("mirokai-east", "/assets/East.png");
+    this.load.image("mirokai-west", "/assets/West.png");
   }
 
   create() {
