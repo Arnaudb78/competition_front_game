@@ -7,12 +7,12 @@ export function HomeScreen() {
     <div className="flex flex-col items-center justify-between h-full bg-black px-6 py-12">
       {/* Logo / titre */}
       <div className="flex flex-col items-center gap-4 mt-8">
-        <div className="text-6xl">🤖</div>
+        <img src="/assets/logo-mirokai.png" alt="Logo Mirokaï" className="w-28 object-contain" />
         <h1 className="text-3xl font-bold tracking-widest text-center text-white uppercase">
-          Mirokaï
+          Mirokaï Experience
         </h1>
-        <p className="text-xs tracking-widest text-gray-400 uppercase">
-          Experience
+        <p className="text-sm tracking-widest text-yellow-400 uppercase font-bold">
+          Le jeu
         </p>
       </div>
 
