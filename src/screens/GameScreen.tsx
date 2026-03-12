@@ -157,7 +157,6 @@ export function GameScreen() {
   );
   const [nearNpc, setNearNpc] = useState(false);
   const [dialog, setDialog] = useState<DialogState | null>(null);
-  const [questState, setQuestState] = useState<QuestState>("pending");
   const [selectedChoice, setSelectedChoice] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
   const [menuTab, setMenuTab] = useState<"main" | "code">("main");
@@ -296,7 +295,6 @@ export function GameScreen() {
       {
         label: "Oui, j'accepte !",
         onSelect: () => {
-          setQuestState("accepted");
           questRef.current = "accepted";
           openDialog(QUEST_ACCEPTED_FOLLOWUP);
         },
@@ -304,7 +302,6 @@ export function GameScreen() {
       {
         label: "Non, pas maintenant.",
         onSelect: () => {
-          setQuestState("declined");
           questRef.current = "declined";
           openDialog(QUEST_DECLINED_FOLLOWUP);
         },
@@ -321,7 +318,6 @@ export function GameScreen() {
         {
           label: "Oui, j'accepte !",
           onSelect: () => {
-            setQuestState("accepted");
             questRef.current = "accepted";
             openDialog(QUEST_ACCEPTED_FOLLOWUP);
           },
@@ -425,7 +421,6 @@ export function GameScreen() {
     setNearModule(null);
     setNearNpc(false);
     setDialog(null);
-    setQuestState("pending");
     questRef.current = "pending";
     visitedModulesRef.current = new Set();
     mirokaSoundTriggeredRef.current = false;

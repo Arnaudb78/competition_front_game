@@ -218,7 +218,7 @@ export class MainScene extends Phaser.Scene {
         this.npcDirIndex = (this.npcDirIndex + 1) % NPC_IDLE_DIRS.length;
         const dir = NPC_IDLE_DIRS[this.npcDirIndex];
         this.npcSprites.forEach((sprite) => {
-          sprite.setTexture(NPC_IDLE_DIRS[this.npcDirIndex]);
+          sprite.setTexture(dir);
         });
       },
     });
