@@ -39,10 +39,10 @@ export const FALLBACK_MODULES: ModuleData[] = [
 // PNJ fixe près de l'entrée (x=5, y=27)
 const NPCS: NpcData[] = [
   {
-    id: "guide",
+    id: "professor",
     x: 42,
-    y: 24,
-    texture: "mirokai-west",
+    y: 28,
+    texture: "professor-south",
     dialog: [
       "Bienvenue dans l'univers Enchanted Tools !",
       "Je suis un Mirokaï, le robot conçu ici même.",
@@ -77,10 +77,22 @@ export class MainScene extends Phaser.Scene {
 
   // ── Dark mode ──────────────────────────────────────────────────────────────
   private darkMode = false;
-  private zombies: { tileX: number; tileY: number; sprite: Phaser.GameObjects.Image; isMoving: boolean }[] = [];
+  private zombies: {
+    tileX: number;
+    tileY: number;
+    sprite: Phaser.GameObjects.Image;
+    isMoving: boolean;
+  }[] = [];
   private lastHitTime = 0;
   private readonly I_FRAMES_MS = 1200;
-  private boss: { tileX: number; tileY: number; sprite: Phaser.GameObjects.Image; hp: number; maxHp: number; isMoving: boolean } | null = null;
+  private boss: {
+    tileX: number;
+    tileY: number;
+    sprite: Phaser.GameObjects.Image;
+    hp: number;
+    maxHp: number;
+    isMoving: boolean;
+  } | null = null;
   private bossMaxHp = 5;
 
   // Grille de collision construite depuis le calque "collisions" de Tiled
@@ -118,6 +130,9 @@ export class MainScene extends Phaser.Scene {
     this.load.image("miroka-north", "/assets/Miroka_north.png");
     this.load.image("miroka-east", "/assets/Miroka_east.png");
     this.load.image("miroka-west", "/assets/Miroka_west.png");
+
+    // PNJ Professeur
+    this.load.image("professor-south", "/assets/professor_south.png");
 
     // Image de la map exportée depuis Tiled (File → Export as Image)
     // Zombies (8 directions)
@@ -193,7 +208,7 @@ export class MainScene extends Phaser.Scene {
       const sprite = this.add.image(
         npc.x * TILE + TILE / 2,
         npc.y * TILE + TILE / 2,
-        NPC_IDLE_DIRS[0],
+        npc.texture,
       );
       sprite.setDisplaySize(NPC_SIZE, NPC_SIZE);
       sprite.setDepth(9);
@@ -210,15 +225,15 @@ export class MainScene extends Phaser.Scene {
         .setDepth(11);
     });
 
-    // Animation idle : cycle entre les 4 directions toutes les 800 ms
+    // Animation idle : cycle entre les 4 directions toutes les 800 ms (uniquement pour les PNJ Miroka)
     this.time.addEvent({
       delay: 800,
       loop: true,
       callback: () => {
         this.npcDirIndex = (this.npcDirIndex + 1) % NPC_IDLE_DIRS.length;
         const dir = NPC_IDLE_DIRS[this.npcDirIndex];
-        this.npcSprites.forEach((sprite) => {
-          sprite.setTexture(dir);
+        this.npcSprites.forEach((sprite, id) => {
+          if (id !== "professor") sprite.setTexture(dir);
         });
       },
     });
@@ -414,7 +429,12 @@ export class MainScene extends Phaser.Scene {
 
   // ── Dark Mode ──────────────────────────────────────────────────────────────
 
-  enableDarkMode(config: { zombieCount: number; zombieDelay: number; chaseRate: number; bossHp: number }) {
+  enableDarkMode(config: {
+    zombieCount: number;
+    zombieDelay: number;
+    chaseRate: number;
+    bossHp: number;
+  }) {
     this.darkMode = true;
     this.cameras.main.flash(600, 180, 0, 0);
     this.cameras.main.setBackgroundColor("#0a0000");
@@ -435,13 +455,13 @@ export class MainScene extends Phaser.Scene {
   }
 
   private zombieTexture(dx: number, dy: number): string {
-    if (dx === 1  && dy === 1)  return "zombie-south-east";
-    if (dx === -1 && dy === 1)  return "zombie-south-west";
-    if (dx === 1  && dy === -1) return "zombie-north-east";
+    if (dx === 1 && dy === 1) return "zombie-south-east";
+    if (dx === -1 && dy === 1) return "zombie-south-west";
+    if (dx === 1 && dy === -1) return "zombie-north-east";
     if (dx === -1 && dy === -1) return "zombie-north-west";
-    if (dy === 1)  return "zombie-south";
+    if (dy === 1) return "zombie-south";
     if (dy === -1) return "zombie-north";
-    if (dx === 1)  return "zombie-east";
+    if (dx === 1) return "zombie-east";
     return "zombie-west";
   }
 
@@ -465,7 +485,8 @@ export class MainScene extends Phaser.Scene {
       const x = Math.floor(Math.random() * (MAP_W - 2)) + 1;
       const y = Math.floor(Math.random() * (MAP_H - 2)) + 1;
       // Ne pas spawner trop près du joueur
-      if (Math.abs(x - this.playerX) < 6 && Math.abs(y - this.playerY) < 6) continue;
+      if (Math.abs(x - this.playerX) < 6 && Math.abs(y - this.playerY) < 6)
+        continue;
       if (!this.isTileWalkable(x, y)) continue;
 
       const spr = this.add.image(
@@ -482,7 +503,12 @@ export class MainScene extends Phaser.Scene {
   }
 
   private wanderZombies() {
-    const dirs = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
+    const dirs = [
+      { dx: 1, dy: 0 },
+      { dx: -1, dy: 0 },
+      { dx: 0, dy: 1 },
+      { dx: 0, dy: -1 },
+    ];
     this.zombies.forEach((zombie) => {
       if (zombie.isMoving) return;
 
@@ -491,9 +517,8 @@ export class MainScene extends Phaser.Scene {
         { dx: 0, dy: Math.sign(this.playerY - zombie.tileY) },
       ].filter((d) => d.dx !== 0 || d.dy !== 0);
       // 80% du temps : fonce vers le joueur
-      const candidates = Math.random() < this.chaseRate
-        ? [...toPlayer, ...dirs]
-        : [...dirs];
+      const candidates =
+        Math.random() < this.chaseRate ? [...toPlayer, ...dirs] : [...dirs];
 
       for (const { dx, dy } of candidates) {
         const nx = zombie.tileX + dx;
@@ -530,7 +555,9 @@ export class MainScene extends Phaser.Scene {
           y: ny * TILE + TILE / 2,
           duration: 280,
           ease: "Linear",
-          onComplete: () => { zombie.isMoving = false; },
+          onComplete: () => {
+            zombie.isMoving = false;
+          },
         });
         break;
       }
@@ -549,7 +576,8 @@ export class MainScene extends Phaser.Scene {
     const fb = this.add.circle(
       this.playerX * TILE + TILE / 2,
       this.playerY * TILE + TILE / 2,
-      7, 0xff6600,
+      7,
+      0xff6600,
     );
     fb.setDepth(13);
     this.moveFireball(fb, this.playerX, this.playerY, dx, dy);
@@ -557,15 +585,29 @@ export class MainScene extends Phaser.Scene {
 
   private moveFireball(
     fb: Phaser.GameObjects.Arc,
-    fromX: number, fromY: number,
-    dx: number, dy: number,
+    fromX: number,
+    fromY: number,
+    dx: number,
+    dy: number,
   ) {
     const nx = fromX + dx;
     const ny = fromY + dy;
 
-    if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H || this.collisionGrid[ny]?.[nx]) {
-      this.tweens.add({ targets: fb, alpha: 0, scaleX: 2, scaleY: 2, duration: 120,
-        onComplete: () => fb.destroy() });
+    if (
+      nx < 0 ||
+      nx >= MAP_W ||
+      ny < 0 ||
+      ny >= MAP_H ||
+      this.collisionGrid[ny]?.[nx]
+    ) {
+      this.tweens.add({
+        targets: fb,
+        alpha: 0,
+        scaleX: 2,
+        scaleY: 2,
+        duration: 120,
+        onComplete: () => fb.destroy(),
+      });
       return;
     }
 
@@ -583,11 +625,19 @@ export class MainScene extends Phaser.Scene {
           return;
         }
         // Hit zombie ?
-        const zIdx = this.zombies.findIndex((z) => z.tileX === nx && z.tileY === ny);
+        const zIdx = this.zombies.findIndex(
+          (z) => z.tileX === nx && z.tileY === ny,
+        );
         if (zIdx >= 0) {
           const z = this.zombies[zIdx];
-          this.tweens.add({ targets: z.sprite, alpha: 0, scaleX: 2, scaleY: 2,
-            duration: 250, onComplete: () => z.sprite.destroy() });
+          this.tweens.add({
+            targets: z.sprite,
+            alpha: 0,
+            scaleX: 2,
+            scaleY: 2,
+            duration: 250,
+            onComplete: () => z.sprite.destroy(),
+          });
           this.zombies.splice(zIdx, 1);
           fb.destroy();
           this.onZombieKilled?.(this.zombies.length);
@@ -600,34 +650,62 @@ export class MainScene extends Phaser.Scene {
   }
 
   private spawnBoss() {
-    let bx = 0, by = 0;
+    let bx = 0,
+      by = 0;
     for (let attempts = 0; attempts < 300; attempts++) {
       bx = Math.floor(Math.random() * (MAP_W - 4)) + 2;
       by = Math.floor(Math.random() * (MAP_H - 4)) + 2;
-      if (Math.abs(bx - this.playerX) < 10 && Math.abs(by - this.playerY) < 10) continue;
+      if (Math.abs(bx - this.playerX) < 10 && Math.abs(by - this.playerY) < 10)
+        continue;
       if (!this.isTileWalkable(bx, by)) continue;
       break;
     }
 
     const BOSS_SIZE = NPC_SIZE * 2.2;
-    const spr = this.add.image(bx * TILE + TILE / 2, by * TILE + TILE / 2, "zombie-south");
+    const spr = this.add.image(
+      bx * TILE + TILE / 2,
+      by * TILE + TILE / 2,
+      "zombie-south",
+    );
     spr.setDisplaySize(BOSS_SIZE, BOSS_SIZE);
     spr.setDepth(10);
     spr.setAlpha(0);
 
-    this.boss = { tileX: bx, tileY: by, sprite: spr, hp: this.bossMaxHp, maxHp: this.bossMaxHp, isMoving: false };
+    this.boss = {
+      tileX: bx,
+      tileY: by,
+      sprite: spr,
+      hp: this.bossMaxHp,
+      maxHp: this.bossMaxHp,
+      isMoving: false,
+    };
 
     this.cameras.main.shake(800, 0.012);
     this.cameras.main.flash(400, 255, 0, 0);
-    this.tweens.add({ targets: spr, alpha: 1, duration: 600, ease: "Quad.easeIn" });
+    this.tweens.add({
+      targets: spr,
+      alpha: 1,
+      duration: 600,
+      ease: "Quad.easeIn",
+    });
     this.onBossAppear?.(this.bossMaxHp);
 
-    this.time.addEvent({ delay: 1600, loop: true, callback: this.moveBoss, callbackScope: this });
+    this.time.addEvent({
+      delay: 1600,
+      loop: true,
+      callback: this.moveBoss,
+      callbackScope: this,
+    });
   }
 
   private moveBoss() {
     if (!this.boss || this.boss.isMoving) return;
-    const dirs = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
+    const dirs = [
+      { dx: 1, dy: 0 },
+      { dx: -1, dy: 0 },
+      { dx: 0, dy: 1 },
+      { dx: 0, dy: -1 },
+    ];
     const toPlayer = [
       { dx: Math.sign(this.playerX - this.boss.tileX), dy: 0 },
       { dx: 0, dy: Math.sign(this.playerY - this.boss.tileY) },
@@ -641,7 +719,13 @@ export class MainScene extends Phaser.Scene {
         const now = Date.now();
         if (now - this.lastHitTime >= this.I_FRAMES_MS) {
           this.lastHitTime = now;
-          this.tweens.add({ targets: this.playerSprite, alpha: 0.2, duration: 80, yoyo: true, repeat: 4 });
+          this.tweens.add({
+            targets: this.playerSprite,
+            alpha: 0.2,
+            duration: 80,
+            yoyo: true,
+            repeat: 4,
+          });
           this.cameras.main.shake(250, 0.01);
           this.cameras.main.flash(120, 200, 0, 0);
           this.onPlayerHit?.();
@@ -659,7 +743,9 @@ export class MainScene extends Phaser.Scene {
         y: ny * TILE + TILE / 2,
         duration: 400,
         ease: "Linear",
-        onComplete: () => { if (this.boss) this.boss.isMoving = false; },
+        onComplete: () => {
+          if (this.boss) this.boss.isMoving = false;
+        },
       });
       break;
     }
@@ -670,8 +756,13 @@ export class MainScene extends Phaser.Scene {
     this.boss.hp -= 1;
     this.tweens.add({
       targets: this.boss.sprite,
-      alpha: 0.3, duration: 60, yoyo: true, repeat: 1,
-      onComplete: () => { if (this.boss) this.boss.sprite.setAlpha(1); },
+      alpha: 0.3,
+      duration: 60,
+      yoyo: true,
+      repeat: 1,
+      onComplete: () => {
+        if (this.boss) this.boss.sprite.setAlpha(1);
+      },
     });
     this.cameras.main.shake(120, 0.005);
     this.onBossHit?.(this.boss.hp, this.boss.maxHp);
@@ -680,7 +771,12 @@ export class MainScene extends Phaser.Scene {
       const deadSpr = this.boss.sprite;
       this.boss = null;
       this.tweens.add({
-        targets: deadSpr, alpha: 0, scaleX: 3, scaleY: 3, duration: 600, ease: "Quad.easeOut",
+        targets: deadSpr,
+        alpha: 0,
+        scaleX: 3,
+        scaleY: 3,
+        duration: 600,
+        ease: "Quad.easeOut",
         onComplete: () => deadSpr.destroy(),
       });
       this.cameras.main.shake(600, 0.015);

@@ -77,8 +77,8 @@ const QUEST_REMINDER: DialogLine[] = [
 ];
 
 const QUEST_IN_PROGRESS: DialogLine[] = [
-  { speaker: "Mirokaï", text: "Continue d'explorer les modules !" },
-  { speaker: "Mirokaï", text: "Miroka est forcément quelque part par ici…" },
+  { speaker: "Professeur", text: "Continue d'explorer les modules !" },
+  { speaker: "Professeur", text: "Miroka est forcément quelque part par ici…" },
 ];
 
 const ALL_MODULES_DIALOG: DialogLine[] = [
